@@ -5,7 +5,7 @@ import java.math.BigInteger
 import java.security.MessageDigest
 import java.security.SecureRandom
 
-class User(
+class User private constructor(
     private val firstName: String,
     private val lastName: String?,
     email: String? = null,
@@ -33,6 +33,8 @@ class User(
         get() = _login!!
     private lateinit var passwordHash:String
 
+    @VisibleForTesting(otherwise = VisibleForTesting.NONE)
+    var accessCode: String? = null
     //for email
     constructor(
         firstName: String,
@@ -53,23 +55,23 @@ class User(
         rawPhone: String?
     ): this(firstName, lastName, rawPhone = rawPhone, meta = mapOf("auth" to "sms")){
         println("Secondary mail constructor")
-        val code: String = generateAcsessCode()
+        val code: String = generateAccessCode()
+        passwordHash = encrypt(password)
+        accessCode = code
+        sendAccessCodeToUser(phone, code)
+
     }
 
-    private fun generateAcsessCode(): String {
-        val possible ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-        return StringBuilder().apply {
-            repeat(6){
-                (possible.indices).random().also {index ->
-                    append(possible[index])
-                }
-            }
 
-        }.toString()
-    }
 
     init{
         println("First init block, primary constructor was called")
+        check(!firstName.isBlank()){"First name must be not blank"}
+        check(email.isNullOrBlank() || rawPhone.isNullOrBlank()){"Email or phone must be not blank"}
+
+        phone = rawPhone
+        login = email ?: phone!!
+
         userInfo = """
             firstName: $firstName
             lastName: $lastName
@@ -80,6 +82,30 @@ class User(
             phone: $phone
             meta: $meta
         """.trimIndent()
+    }
+
+
+    fun checkPassword(pass:String) = encrypt(pass) == passwordHash
+
+    fun changePassword(oldPass:String, newPass:String){
+        if(checkPassword(oldPass)) passwordHash = encrypt(newPass)
+        else throw IllegalArgumentExeption("The entered password does not match the current password")
+    }
+
+    private fun sendAccessCodeToUser(phone:String?, code:String){
+        println("..... sending access code: $code on $phone")
+    }
+
+    private fun generateAccessCode(): String {
+        val possible ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+        return StringBuilder().apply {
+            repeat(6){
+                (possible.indices).random().also {index ->
+                    append(possible[index])
+                }
+            }
+
+        }.toString()
     }
 
     private val salt: String by lazy {
@@ -93,6 +119,35 @@ class User(
         val digest:ByteArray = md.digest(toByteArray())
         val  hexString:String = BigInteger(1,digest).toString(16)
         return hexString.padStart(32,'0')
+    }
+
+    companion object Factory{
+        fun makeUser(
+            fullName:String,
+            email: String? = null,
+            password: String? = null,
+            phone: String? = null
+        ):User{
+            val (firstName, lastName) = fullName.fullNameToPair()
+            return when{
+                !phone.isNullOrBlank() -> User(firstName, lastName, phone)
+                !email.isNullOrBlank() && !password.isNullOrBlank() -> User(firstName, lastName, email, password)
+                else throw IllegalArgumentExeption("Email or phone must be not null or blank")
+            }
+        }
+    }
+
+    private String.fullNameToPair(): Pair<String, String?>{
+        return this.split(" ")
+                .filter(it.isNotBlank())
+                .run{
+                    when(size){
+                        1 -> first() to null
+                        2 -> first() to last()
+                        else throw IllegalArgumentExeption("Fullname must contain only first name and last name, current split result ${this@fullNameToPair}")
+                    }
+                }
+
     }
 }
 
