@@ -1,5 +1,7 @@
 package ru.skillbranch.kotlinexample
 
+import androidx.annotation.VisibleForTesting
+import java.lang.IllegalArgumentException
 import java.lang.StringBuilder
 import java.math.BigInteger
 import java.security.MessageDigest
@@ -15,18 +17,19 @@ class User private constructor(
     val userInfo: String
     private val fullName: String
         get() = listOfNotNull(firstName, lastName)
-            .joinToString { " " }
+            .joinToString(" ")
             .capitalize()
+
     private val initials:String
         get() = listOfNotNull(firstName, lastName)
             .map { it.first().toUpperCase() }
-            .joinToString { " " }
-    private var phone: String? = null
+            .joinToString(" ")
+    var phone: String? = null
         set(value){
-            field = value?.replace("[^+||d]".toRegex(),"")
+            field = value?.replace("[^+\\d]".toRegex(),"")
         }
     private var _login: String? = null
-    private var login: String
+    var login: String
         set(value) {
             _login = value?.toLowerCase()
         }
@@ -35,6 +38,7 @@ class User private constructor(
 
     @VisibleForTesting(otherwise = VisibleForTesting.NONE)
     var accessCode: String? = null
+
     //for email
     constructor(
         firstName: String,
@@ -46,8 +50,6 @@ class User private constructor(
         passwordHash = encrypt(password)
     }
 
-
-
     //for phone
     constructor(
         firstName: String,
@@ -56,13 +58,11 @@ class User private constructor(
     ): this(firstName, lastName, rawPhone = rawPhone, meta = mapOf("auth" to "sms")){
         println("Secondary mail constructor")
         val code: String = generateAccessCode()
-        passwordHash = encrypt(password)
+        passwordHash = encrypt(code)
         accessCode = code
         sendAccessCodeToUser(phone, code)
 
     }
-
-
 
     init{
         println("First init block, primary constructor was called")
@@ -84,12 +84,17 @@ class User private constructor(
         """.trimIndent()
     }
 
+    fun newAccessCode(){
+        val code = generateAccessCode()
+        passwordHash = encrypt(code)
+        accessCode = code
+    }
 
     fun checkPassword(pass:String) = encrypt(pass) == passwordHash
 
     fun changePassword(oldPass:String, newPass:String){
         if(checkPassword(oldPass)) passwordHash = encrypt(newPass)
-        else throw IllegalArgumentExeption("The entered password does not match the current password")
+        else throw IllegalArgumentException("The entered password does not match the current password")
     }
 
     private fun sendAccessCodeToUser(phone:String?, code:String){
@@ -132,23 +137,24 @@ class User private constructor(
             return when{
                 !phone.isNullOrBlank() -> User(firstName, lastName, phone)
                 !email.isNullOrBlank() && !password.isNullOrBlank() -> User(firstName, lastName, email, password)
-                else throw IllegalArgumentExeption("Email or phone must be not null or blank")
+                else -> throw IllegalArgumentException("Email or phone must be not null or blank")
             }
         }
-    }
-
-    private String.fullNameToPair(): Pair<String, String?>{
-        return this.split(" ")
-                .filter(it.isNotBlank())
+        private fun String.fullNameToPair(): Pair<String, String?>{
+            return this.split(" ")
+                .filter { it.isNotBlank() }
                 .run{
                     when(size){
                         1 -> first() to null
                         2 -> first() to last()
-                        else throw IllegalArgumentExeption("Fullname must contain only first name and last name, current split result ${this@fullNameToPair}")
+                        else -> throw IllegalArgumentException("Fullname must contain only first name and last name, current split result ${this@fullNameToPair}")
                     }
                 }
 
+        }
     }
+
+
 }
 
 
