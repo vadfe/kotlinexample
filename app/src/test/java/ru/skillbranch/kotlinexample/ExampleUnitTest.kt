@@ -101,7 +101,6 @@ class ExampleUnitTest {
         """.trimIndent()
 
         val successResult =  holder.loginUser("john_doe@unknown.com", "testPass")
-
         Assert.assertEquals(expectedInfo, successResult)
     }
 
@@ -167,5 +166,19 @@ class ExampleUnitTest {
 
         Assert.assertNotEquals(oldAccess, user.accessCode!!)
         Assert.assertEquals(expectedInfo, successResult)
+    }
+
+    @Test
+    fun import() {
+        val l:List<String> = listOf(" John Doe ;JohnDoe@unknow.com;[B@7591083d:c6adb4becdc64e92857e1e2a0fd6af84;;",
+            " Vad Fe ;vadfe@unknow.com;[B@7591083e:c6adb4becdc64e92857e1e2a0fd6af85;;")
+        val holder = UserHolder
+        holder.importUsers(l)
+        l.forEach{string ->
+            val login = string.split(";")[1]
+            val pass = string.split(";")[2]
+            val successResult =  holder.loginUser(login,pass)
+            println(successResult)
+        }
     }
 }

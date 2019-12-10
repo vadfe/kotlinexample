@@ -39,6 +39,19 @@ class User private constructor(
     @VisibleForTesting(otherwise = VisibleForTesting.NONE)
     var accessCode: String? = null
 
+    //for import
+    constructor(
+        firstName: String,
+        lastName: String?,
+        email: String? = null,
+        salt :String? = null,
+        hash: String
+    ): this(firstName, lastName, email = email, meta = mapOf("src" to "csv")){
+        println("Secondary mail constructor")
+        //passwordHash = salt.plus(hash)
+        passwordHash = hash
+    }
+
     //for email
     constructor(
         firstName: String,
@@ -91,6 +104,7 @@ class User private constructor(
     }
 
     fun checkPassword(pass:String) = encrypt(pass) == passwordHash
+    fun checkSaltPassword(pass:String) = pass == passwordHash
 
     fun changePassword(oldPass:String, newPass:String){
         if(checkPassword(oldPass)) passwordHash = encrypt(newPass)
@@ -131,12 +145,14 @@ class User private constructor(
             fullName:String,
             email: String? = null,
             password: String? = null,
-            phone: String? = null
+            phone: String? = null,
+            salt: String? = null
         ):User{
             val (firstName, lastName) = fullName.fullNameToPair()
             return when{
                 !phone.isNullOrBlank() -> User(firstName, lastName, phone)
-                !email.isNullOrBlank() && !password.isNullOrBlank() -> User(firstName, lastName, email, password)
+                !email.isNullOrBlank() && !password.isNullOrBlank() && salt.isNullOrBlank()  -> User(firstName, lastName, email, password)
+                !email.isNullOrBlank() && !password.isNullOrBlank() && !salt.isNullOrBlank() -> User(firstName, lastName, email, salt, password)
                 else -> throw IllegalArgumentException("Email or phone must be not null or blank")
             }
         }
